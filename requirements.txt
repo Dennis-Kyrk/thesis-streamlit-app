@@ -1,0 +1,22 @@
+# Core app + UI
+streamlit
+plotly
+
+# Data handling
+pandas
+numpy
+
+# Modeling
+xgboost
+scikit-learn
+imbalanced-learn
+
+# Feature extraction from time series
+tsfresh
+
+# Parquet support for pandas.read_parquet
+pyarrow
+
+# (tsfresh/scikit-learn depend on these, but listing explicitly avoids resolver hiccups)
+scipy
+statsmodels
