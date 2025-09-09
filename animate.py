@@ -1727,7 +1727,7 @@ try:
     
     st.markdown(f"""
     <div style="font-size: 1.2rem; line-height: 1.6; padding: 1.5rem; background-color: #ffebee; border-radius: 10px; border-left: 4px solid #d32f2f;">
-    <strong>⚠️ Critical Quality Control Issue:</strong> The results reveal a drastic performance imbalance between the two classes. While the AI model shows excellent performance on normal data ({normal_correct_pct:.1f}% accuracy), its performance on defective data is insufficient for industrial quality control standards.
+    <strong>⚠️ Critical Quality Control Issue:</strong> The results reveal a drastic performance imbalance between the two classes. While the AI model shows good performance on normal data ({normal_correct_pct:.1f}% accuracy), its performance on defective data is insufficient for industrial quality control standards.
     <br><br>
     <strong>The Magnitude of the Problem:</strong> The error rates show a {error_ratio:.1f}x performance difference:
     <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
