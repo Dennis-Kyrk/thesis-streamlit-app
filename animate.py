@@ -3,14 +3,13 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import xgboost as xgb
-from sklearn.metrics import accuracy_score, confusion_matrix, roc_auc_score
+from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import StratifiedKFold
 from sklearn.impute import SimpleImputer
 from imblearn.combine import SMOTETomek
 import warnings
 import os
 import time
-import json
 import pickle
 import hashlib
 warnings.filterwarnings('ignore')
@@ -45,8 +44,10 @@ st.markdown("""
     .subtitle {
         text-align: center;
         color: #666;
-        font-size: 1rem;
-        margin-bottom: 1rem;
+        font-size: 1.4rem;
+        font-weight: 500;
+        margin-bottom: 1.5rem;
+        line-height: 1.4;
     }
     
     /* Base card styles */
@@ -243,6 +244,134 @@ st.markdown("""
         text-align: center;
         margin: 0.5rem 0;
     }
+    
+    /* Tooltip Styles */
+    .tooltip {
+        position: relative;
+        display: inline-block;
+        cursor: help;
+    }
+    
+    .tooltip .tooltiptext {
+        visibility: hidden;
+        width: 300px;
+        background-color: #333;
+        color: #fff;
+        text-align: left;
+        border-radius: 8px;
+        padding: 12px;
+        position: absolute;
+        z-index: 1000;
+        bottom: 125%;
+        left: 50%;
+        margin-left: -150px;
+        opacity: 0;
+        transition: opacity 0.3s;
+        font-size: 0.9rem;
+        line-height: 1.4;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        border: 1px solid #555;
+    }
+    
+    .tooltip .tooltiptext::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: #333 transparent transparent transparent;
+    }
+    
+    .tooltip:hover .tooltiptext {
+        visibility: visible;
+        opacity: 1;
+    }
+    
+    /* Tooltip positioning variants */
+    .tooltip-right .tooltiptext {
+        top: -5px;
+        left: 110%;
+        bottom: auto;
+        margin-left: 0;
+    }
+    
+    .tooltip-right .tooltiptext::after {
+        top: 20px;
+        left: -5px;
+        border-color: transparent #333 transparent transparent;
+    }
+    
+    .tooltip-left .tooltiptext {
+        top: -5px;
+        right: 110%;
+        left: auto;
+        bottom: auto;
+        margin-left: 0;
+    }
+    
+    .tooltip-left .tooltiptext::after {
+        top: 20px;
+        right: -5px;
+        left: auto;
+        border-color: transparent transparent transparent #333;
+    }
+    
+    /* Sidebar tooltip positioning - force right positioning */
+    .sidebar-tooltip {
+        font-weight: bold;
+    }
+    
+    .sidebar-tooltip .tooltiptext {
+        top: -5px;
+        left: 110%;
+        right: auto;
+        bottom: auto;
+        margin-left: 0;
+        width: 250px;
+    }
+    
+    .sidebar-tooltip .tooltiptext::after {
+        top: 20px;
+        left: -5px;
+        right: auto;
+        border-color: transparent #333 transparent transparent;
+    }
+    
+    .tooltip-bottom .tooltiptext {
+        top: 125%;
+        bottom: auto;
+    }
+    
+    .tooltip-bottom .tooltiptext::after {
+        top: -5px;
+        border-color: transparent transparent #333 transparent;
+    }
+    
+    /* Info icon styling */
+    .info-icon {
+        color: #2196f3;
+        font-size: 0.9em;
+        margin-left: 4px;
+        vertical-align: middle;
+        cursor: help;
+    }
+    
+    .info-icon:hover {
+        color: #1976d2;
+    }
+    
+    /* Special tooltip for large content */
+    .tooltip-large .tooltiptext {
+        width: 400px;
+        margin-left: -200px;
+    }
+    
+    .tooltip-wide .tooltiptext {
+        width: 500px;
+        margin-left: -250px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -270,6 +399,21 @@ def create_metric_card(value, label):
         <p>{label}</p>
     </div>
     '''
+
+def create_tooltip(text, tooltip_text, position="top", size="normal"):
+    """Helper to create tooltips with info icons"""
+    size_class = f"tooltip-{size}" if size != "normal" else ""
+    return f'<span class="tooltip {position} {size_class}">{text}<span class="info-icon">ℹ️</span><span class="tooltiptext">{tooltip_text}</span></span>'
+
+def create_sidebar_tooltip(text, tooltip_text, size="normal"):
+    """Helper to create tooltips specifically for sidebar elements"""
+    size_class = f"tooltip-{size}" if size != "normal" else ""
+    return f'<span class="tooltip sidebar-tooltip {size_class}">{text}<span class="info-icon">ℹ️</span><span class="tooltiptext">{tooltip_text}</span></span>'
+
+def display_tooltip(text, tooltip_text, position="top", size="normal"):
+    """Display a tooltip directly using st.markdown"""
+    tooltip_html = create_tooltip(text, tooltip_text, position, size)
+    st.markdown(tooltip_html, unsafe_allow_html=True)
 
 def create_navigation_controls(session_key, current_index, total_items, item_name="sample"):
     """Create reusable navigation controls"""
@@ -514,7 +658,7 @@ def extract_advanced_features(sequences, groups):
     
     for i, (group_id, sequence) in enumerate(zip(groups, sequences)):
         y = sequence[:, 1]  # col2 values
-        x = sequence[:, 0]  # col1 time values
+        # x = sequence[:, 0]  # col1 time values (not used in current implementation)
         
         if len(y) < 10:  # Skip very short sequences
             features_list.append([0] * 15)  # 15 features we'll extract
@@ -539,7 +683,7 @@ def extract_advanced_features(sequences, groups):
             count_residual_gt_3MAD = np.sum(np.abs(residuals) > 3 * mad)
             
             features.extend([max_abs_residual, mean_top3_abs_residual, count_residual_gt_3MAD])
-        except:
+        except Exception:
             features.extend([0, 0, 0])
         
         # 2. Peak consistency & asymmetry
@@ -581,7 +725,7 @@ def extract_advanced_features(sequences, groups):
             
             features.extend([std_pos_peak_height, std_neg_peak_depth, max_prominence, 
                            median_prominence, prominence_ratio, peak_asym, peak_ratio])
-        except:
+        except Exception:
             features.extend([0, 0, 0, 0, 0, 0, 0])
         
         # 3. Spectral leakage / high-frequency ratio
@@ -609,7 +753,7 @@ def extract_advanced_features(sequences, groups):
             spectral_entropy = -np.sum(psd_norm * np.log2(psd_norm)) if len(psd_norm) > 0 else 0
             
             features.extend([hf_ratio, spectral_entropy])
-        except:
+        except Exception:
             features.extend([0, 0])
         
         # 4. Periodicity robustness
@@ -631,7 +775,7 @@ def extract_advanced_features(sequences, groups):
                 r_lagP_ratio = 0
             
             features.append(r_lagP_ratio)
-        except:
+        except Exception:
             features.append(0)
         
         # 5. Shape heavy-tail
@@ -639,7 +783,7 @@ def extract_advanced_features(sequences, groups):
             excess_kurt = kurtosis(y)
             skewness = skew(y)
             features.extend([excess_kurt, skewness])
-        except:
+        except Exception:
             features.extend([0, 0])
         
         features_list.append(features)
@@ -1406,12 +1550,23 @@ def save_discards():
     pass
 
 # Main Application
-st.markdown('<h1 class="main-header">🚀 AI Double Threshold Visual Analyzer</h1>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">Watch 10,000 data points flow through AI with class-specific thresholds and manual inspection</p>', unsafe_allow_html=True)
+main_title_html = create_tooltip(
+    "🚀 AI Double Threshold Visual Analyzer",
+    "This application demonstrates an AI-powered quality control system that uses different confidence thresholds for different classes (Normal vs Defective). The system automatically classifies high-confidence cases and sends uncertain cases to manual inspection, optimizing the balance between automation and accuracy.",
+    "top",
+    "large"
+)
+st.markdown(f'<h1 class="main-header">{main_title_html}</h1>', unsafe_allow_html=True)
+
 
 # Thesis Description Section
 st.markdown("---")
-st.markdown("### 📚 Research Overview")
+research_title_html = create_tooltip(
+    "📚 Research Overview",
+    "This section provides context about the research thesis that this application supports. It explains the focus on industrial quality control automation using machine learning and the challenges of maintaining high accuracy while reducing manual inspection workload.",
+    "top"
+)
+st.markdown(f"### {research_title_html}", unsafe_allow_html=True)
 
 st.markdown("""
 <div style="font-size: 1.2rem; line-height: 1.6; padding: 1.5rem; background-color: #f0f8ff; border-radius: 10px; border-left: 4px solid #2e7d32;">
@@ -1428,15 +1583,35 @@ if not os.path.exists('wave_dataset.parquet'):
 
 # Add data management section in sidebar (loaded early to prevent layout shifts)
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 🏷️ Data Management")
-st.sidebar.caption("💾 Changes are session-only (reset on page refresh)")
+sidebar_title_html = create_sidebar_tooltip(
+    "🏷️ Data Management",
+    "This section allows you to manage data corrections and discards. You can relabel samples that were incorrectly classified or mark samples as abnormal data to remove from training."
+)
+st.sidebar.markdown(f"### {sidebar_title_html}", unsafe_allow_html=True)
+session_note_html = create_tooltip(
+    "💾 Changes are session-only (reset on page refresh)",
+    "All changes you make (relabeling or discarding samples) are stored only in your current browser session. When you refresh the page, these changes will be lost unless you export them first.",
+    "left"
+)
+st.sidebar.caption(session_note_html, unsafe_allow_html=True)
 
 # Show statistics
 col1, col2 = st.sidebar.columns(2)
 with col1:
-    st.metric("Corrections", len(st.session_state.relabeled_data))
+    corrections_html = create_sidebar_tooltip(
+        "Corrections",
+        "Number of samples you have relabeled (changed from their original ground truth labels). These changes will be applied when you retrain the model."
+    )
+    st.markdown(corrections_html, unsafe_allow_html=True)
+    st.metric("", len(st.session_state.relabeled_data))
 with col2:
-    st.metric("Discarded", len(st.session_state.discarded_data))
+    discarded_html = create_tooltip(
+        "Discarded",
+        "Number of samples you have marked for removal from training. These samples will be excluded when you retrain the model.",
+        "left"
+    )
+    st.markdown(discarded_html, unsafe_allow_html=True)
+    st.metric("", len(st.session_state.discarded_data))
 
 # Show details in expanders
 if st.session_state.relabeled_data:
@@ -1568,7 +1743,12 @@ try:
     
     
     # Data Flow Visualization
-    st.markdown("### 📊 Final Model Performance")
+    performance_title_html = create_tooltip(
+        "📊 Basic Model Performance",
+        "This section shows the basic performance of the AI model on 10,000 simulated data points. It demonstrates how many samples are correctly classified versus misclassified, revealing the fundamental accuracy of the model before any advanced techniques are applied.",
+        "top"
+    )
+    st.markdown(f"### {performance_title_html}", unsafe_allow_html=True)
     
     # Check if there are unapplied changes
     unapplied_corrections = (len(st.session_state.relabeled_data) > 0 and 
@@ -1602,8 +1782,13 @@ try:
     
     # Create vertical flow layout
     # Step 1: Input Data
+    input_data_title = create_tooltip(
+        "📥 Input Data",
+        "This represents the total dataset of 10,000 data points that will be processed by the AI system. The data is split between Normal samples (majority class) and Defective samples (minority class) based on the actual distribution in your training data.",
+        "top"
+    )
     st.markdown(create_div_card('data-points base-card', f'''
-        <h3>📥 Input Data</h3>
+        <h3>{input_data_title}</h3>
         <h2>{total_points:,}</h2>
         <p>(Normal {simulation_results['true_majority_count']:,} + Defect {simulation_results['true_minority_count']:,})</p>
     '''), unsafe_allow_html=True)
@@ -1612,9 +1797,19 @@ try:
     st.markdown('<div class="flow-arrow-down">⬇️</div>', unsafe_allow_html=True)
     
     # Step 2: XGBoost Model (Full Width)
-    st.markdown(create_div_card('xgboost-model base-card', '''
-        <h3>🤖 AI Model</h3>
-        <p><strong>Processing 10,000 data points through double threshold classification</strong></p>
+    ai_model_title = create_tooltip(
+        "🤖 AI Model",
+        "This is the XGBoost machine learning model that processes each data point and outputs confidence scores for both Normal and Defective classes. The model uses advanced features extracted from time series data to make its predictions.",
+        "top"
+    )
+    processing_text = create_tooltip(
+        "Processing 10,000 data points through double threshold classification",
+        "The model analyzes each data point and assigns probability scores. The double threshold system then uses these scores to decide: if confidence is high enough, classify automatically; otherwise, send to manual inspection.",
+        "top"
+    )
+    st.markdown(create_div_card('xgboost-model base-card', f'''
+        <h3>{ai_model_title}</h3>
+        <p><strong>{processing_text}</strong></p>
     '''), unsafe_allow_html=True)
     
     # Two arrows pointing from XGBoost to each classification output
@@ -1633,16 +1828,26 @@ try:
     
     with col1:
         minority_percentage = (simulation_results['total_classified_minority'] / total_points) * 100
+        defective_title = create_tooltip(
+            "🔴 Classified as Defective",
+            "These are data points that the AI model classified as defective. In a real manufacturing setting, these would be rejected or sent for rework.",
+            "top"
+        )
         st.markdown(create_div_card('minority-class base-card', f'''
-            <h3>🔴 Classified as Defective</h3>
+            <h3>{defective_title}</h3>
             <h2>{simulation_results['total_classified_minority']:,}</h2>
             <p>{minority_percentage:.1f}% of total data</p>
         '''), unsafe_allow_html=True)
     
     with col2:
         majority_percentage = (simulation_results['total_classified_majority'] / total_points) * 100
+        normal_title = create_tooltip(
+            "🟢 Classified as Normal",
+            "These are data points that the AI model classified as normal. In a real manufacturing setting, these would pass quality control and proceed to the next stage.",
+            "top"
+        )
         st.markdown(create_div_card('majority-class base-card', f'''
-            <h3>🟢 Classified as Normal</h3>
+            <h3>{normal_title}</h3>
             <h2>{simulation_results['total_classified_majority']:,}</h2>
             <p>{majority_percentage:.1f}% of total data</p>
         '''), unsafe_allow_html=True)
@@ -1657,8 +1862,13 @@ try:
         st.markdown('<div class="flow-arrow-diagonal">↙️</div>', unsafe_allow_html=True)
         if simulation_results['total_classified_minority'] > 0:
             correct_minority_pct = (simulation_results['correct_minority'] / simulation_results['total_classified_minority'] * 100)
+            correct_minority_title = create_tooltip(
+                "✅ Correct (Defect)",
+                "These are samples that were correctly classified as defective. In manufacturing, these represent proper quality control - defective products that were correctly identified and rejected.",
+                "top"
+            )
             st.markdown(create_classification_card(
-                "✅ Correct",
+                correct_minority_title,
                 simulation_results['correct_minority'],
                 correct_minority_pct,
                 "True Negatives",
@@ -1672,8 +1882,13 @@ try:
         st.markdown('<div class="flow-arrow-diagonal">↘️</div>', unsafe_allow_html=True)
         if simulation_results['total_classified_minority'] > 0:
             wrong_minority_pct = (simulation_results['wrong_minority'] / simulation_results['total_classified_minority'] * 100)
+            wrong_minority_title = create_tooltip(
+                "❌ Wrong (Normal→Defect)",
+                "These are samples that were incorrectly classified as defective when they are actually normal. In manufacturing, these represent false alarms that waste resources and slow down production.",
+                "top"
+            )
             st.markdown(create_classification_card(
-                "❌ Wrong",
+                wrong_minority_title,
                 simulation_results['wrong_minority'],
                 wrong_minority_pct,
                 "False Positives",
@@ -1687,8 +1902,13 @@ try:
         st.markdown('<div class="flow-arrow-diagonal">↙️</div>', unsafe_allow_html=True)
         if simulation_results['total_classified_majority'] > 0:
             correct_majority_pct = (simulation_results['correct_majority'] / simulation_results['total_classified_majority'] * 100)
+            correct_majority_title = create_tooltip(
+                "✅ Correct (Normal)",
+                "These are samples that were correctly classified as normal. In manufacturing, these represent proper quality control - good products that were correctly identified and allowed to proceed.",
+                "top"
+            )
             st.markdown(create_classification_card(
-                "✅ Correct",
+                correct_majority_title,
                 simulation_results['correct_majority'],
                 correct_majority_pct,
                 "True Positives",
@@ -1702,8 +1922,13 @@ try:
         st.markdown('<div class="flow-arrow-diagonal">↘️</div>', unsafe_allow_html=True)
         if simulation_results['total_classified_majority'] > 0:
             wrong_majority_pct = (simulation_results['wrong_majority'] / simulation_results['total_classified_majority'] * 100)
+            wrong_majority_title = create_tooltip(
+                "❌ Wrong (Defect→Normal)",
+                "These are samples that were incorrectly classified as normal when they are actually defective. In manufacturing, these represent quality escapes - defective products that reach customers and can cause serious problems.",
+                "top"
+            )
             st.markdown(create_classification_card(
-                "❌ Wrong",
+                wrong_majority_title,
                 simulation_results['wrong_majority'],
                 wrong_majority_pct,
                 "False Negatives",
@@ -1714,7 +1939,12 @@ try:
     
     # Performance Analysis
     st.markdown("---")
-    st.markdown("### 📈 Performance Analysis")
+    performance_analysis_title_html = create_tooltip(
+        "📈 Performance Analysis",
+        "This section analyzes the AI model's performance by examining accuracy rates for each class. It reveals critical insights about class imbalance and the need for a hybrid system with manual inspection.",
+        "top"
+    )
+    st.markdown(f"### {performance_analysis_title_html}", unsafe_allow_html=True)
     
     # Calculate the performance percentages
     defective_correct_pct = (simulation_results['correct_minority'] / simulation_results['total_classified_minority'] * 100) if simulation_results['total_classified_minority'] > 0 else 0
@@ -1727,21 +1957,20 @@ try:
     
     st.markdown(f"""
     <div style="font-size: 1.2rem; line-height: 1.6; padding: 1.5rem; background-color: #ffebee; border-radius: 10px; border-left: 4px solid #d32f2f;">
-    <strong>⚠️ Critical Quality Control Issue:</strong> The results reveal a drastic performance imbalance between the two classes. While the AI model shows good performance on normal data ({normal_correct_pct:.1f}% accuracy), its performance on defective data ({defective_correct_pct:.1f}% accuracy) is insufficient for our industrial quality control standards.
+    <strong>⚠️ Critical Quality Control Issue:</strong> The results reveal a significant performance imbalance between the two classes. While the AI model shows good performance on normal data ({normal_correct_pct:.1f}% accuracy), its performance on defective data ({defective_correct_pct:.1f}% accuracy) is insufficient for our industrial quality control standards.
     <br><br>
     <strong>The Magnitude of the Problem:</strong> The error rates show a {error_ratio:.1f}x performance difference:
     <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
-        <li><strong>Defective samples:</strong> {defective_error_rate:.1f}% wrongly classified as normal</li>
-        <li><strong>Normal samples:</strong> {normal_error_rate:.1f}% wrongly classified as defective</li>
+        <li><strong>Among classified defective samples:</strong> {defective_error_rate:.1f}% are actually normal (false positives)</li>
+        <li><strong>Among classified normal samples:</strong> {normal_error_rate:.1f}% are actually defective (false negatives)</li>
     </ul>
-    This means the model is <strong>{error_ratio:.1f} times more likely</strong> to miss a defective product than to misclassify a normal product as defective.
+    This means the model is <strong>{error_ratio:.1f} times more likely</strong> to misclassify normal products as defective than to misclassify defective products as normal.
     <br><br>
-    <strong>The Critical Impact:</strong> Missing {defective_error_rate:.1f}% of defective samples (approximately 3 out of every 10 defective parts) is <strong>not acceptable in our manufacturing environments</strong> where defective products reaching customers can lead to:
+    <strong>The Critical Impact:</strong> This performance creates significant operational and financial challenges:
     <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
-        <li>Product recalls and safety hazards</li>
-        <li>Customer dissatisfaction and brand damage</li>
-        <li>Regulatory compliance violations</li>
-        <li>Significant financial losses</li>
+        <li><strong>High False Rejection Rate:</strong> {defective_error_rate:.1f}% of products classified as defective are actually good, leading to unnecessary waste, rework costs, and production delays</li>
+        <li><strong>Quality Escapes:</strong> Even though only {normal_error_rate:.1f}% of products classified as normal are actually defective, this may still be <strong>unacceptable in many critical applications</strong> where defective products reaching customers can lead to product recalls, safety hazards, regulatory violations, and significant financial losses</li>
+        <li><strong>Operational Inefficiency:</strong> The high false positive rate creates unnecessary waste and reduces overall system efficiency</li>
     </ul>
     This performance gap necessitates the implementation of a hybrid system with manual inspection for uncertain cases.
     </div>
@@ -1749,7 +1978,12 @@ try:
     
     # Hybrid System with Thresholds and Manual Inspection
     st.markdown("---")
-    st.markdown("### 🔧 Hybrid System: Thresholds & Manual Inspection")
+    hybrid_system_title_html = create_tooltip(
+        "🔧 Hybrid System: Thresholds & Manual Inspection",
+        "This section introduces the hybrid approach that combines AI automation with human expertise. By setting different confidence thresholds for each class and sending uncertain cases to manual inspection, we can improve overall system performance while maintaining quality standards.",
+        "top"
+    )
+    st.markdown(f"### {hybrid_system_title_html}", unsafe_allow_html=True)
     st.markdown("""
     <div style="font-size: 1.2rem; line-height: 1.6; padding: 1.5rem; background-color: #f0f8ff; border-radius: 10px; border-left: 4px solid #2e7d32;">
     To address the performance imbalance, we implemented a hybrid system with adjustable confidence thresholds and manual inspection for uncertain cases:
@@ -1773,7 +2007,12 @@ try:
     '''), unsafe_allow_html=True)
     
     # Threshold controls positioned right above the classification outputs
-    st.markdown("### 🎛️ Adjust Classification Thresholds")
+    threshold_title_html = create_tooltip(
+        "🎛️ Adjust Classification Thresholds",
+        "Use these sliders to adjust the confidence thresholds for each class. Higher thresholds mean more samples will be sent to manual inspection, but with higher accuracy for automatically classified samples.",
+        "top"
+    )
+    st.markdown(f"### {threshold_title_html}", unsafe_allow_html=True)
     
     st.markdown("""
     <div style="text-align: center; padding: 1rem; background-color: #e3f2fd; border-radius: 8px; margin: 1rem 0; border-left: 4px solid #2196f3;">
@@ -1805,7 +2044,7 @@ try:
             value=st.session_state.minority_threshold, 
             step=0.001,
             format="%.3f",
-            help="Probability threshold for classifying as Not Normal (Class 0)",
+            help="This threshold controls how confident the AI must be to automatically classify a sample as defective. Higher values mean fewer false positives but more samples sent to manual inspection.",
             key="minority_slider"
         )
         st.session_state.minority_threshold = minority_threshold
@@ -1819,7 +2058,7 @@ try:
             value=st.session_state.majority_threshold, 
             step=0.001,
             format="%.3f",
-            help="Probability threshold for classifying as Normal (Class 1)",
+            help="This threshold controls how confident the AI must be to automatically classify a sample as normal. Higher values mean fewer false negatives but more samples sent to manual inspection.",
             key="majority_slider"
         )
         st.session_state.majority_threshold = majority_threshold
@@ -1844,16 +2083,26 @@ try:
     
     with col1:
         minority_percentage = (hybrid_simulation['total_classified_minority'] / total_points) * 100
+        hybrid_defective_title = create_tooltip(
+            f"🔴 Classified as Defective (> {minority_threshold:.1%} sure)",
+            f"These samples were automatically classified as defective because the AI's confidence exceeded {minority_threshold:.1%}. They can proceed directly to rejection/rework without human review.",
+            "top"
+        )
         st.markdown(create_div_card('minority-class base-card', f'''
-            <h3>🔴 Classified as Defective (> {minority_threshold:.1%} sure)</h3>
+            <h3>{hybrid_defective_title}</h3>
             <h2>{hybrid_simulation['total_classified_minority']:,}</h2>
             <p>{minority_percentage:.1f}% of total data</p>
         '''), unsafe_allow_html=True)
     
     with col2:
         manual_percentage = (hybrid_simulation['total_manual_inspection'] / total_points) * 100
+        manual_title = create_tooltip(
+            "🟠 Manual Inspection",
+            "These samples have low confidence scores and require human inspection. This hybrid approach ensures uncertain cases get proper attention while maintaining efficiency for clear-cut decisions.",
+            "top"
+        )
         st.markdown(create_div_card('manual-inspection base-card', f'''
-            <h3>🟠 Manual Inspection</h3>
+            <h3>{manual_title}</h3>
             <h2>{hybrid_simulation['total_manual_inspection']:,}</h2>
             <p>{manual_percentage:.1f}% of total data</p>
             <p><strong>Requires Human Review</strong></p>
@@ -1861,8 +2110,13 @@ try:
     
     with col3:
         majority_percentage = (hybrid_simulation['total_classified_majority'] / total_points) * 100
+        hybrid_normal_title = create_tooltip(
+            f"🟢 Classified as Normal (> {majority_threshold:.1%} sure)",
+            f"These samples were automatically classified as normal because the AI's confidence exceeded {majority_threshold:.1%}. They can proceed directly to the next production stage without human review.",
+            "top"
+        )
         st.markdown(create_div_card('majority-class base-card', f'''
-            <h3>🟢 Classified as Normal (> {majority_threshold:.1%} sure)</h3>
+            <h3>{hybrid_normal_title}</h3>
             <h2>{hybrid_simulation['total_classified_majority']:,}</h2>
             <p>{majority_percentage:.1f}% of total data</p>
         '''), unsafe_allow_html=True)
@@ -1877,8 +2131,13 @@ try:
         st.markdown('<div class="flow-arrow-diagonal">↙️</div>', unsafe_allow_html=True)
         if hybrid_simulation['total_classified_minority'] > 0:
             correct_minority_pct = (hybrid_simulation['correct_minority'] / hybrid_simulation['total_classified_minority'] * 100)
+            hybrid_correct_minority_title = create_tooltip(
+                "✅ Correct (Defect)",
+                "These are samples that were correctly classified as defective with high confidence. The hybrid system allows these to be automatically rejected without human review, improving efficiency.",
+                "top"
+            )
             st.markdown(create_classification_card(
-                "✅ Correct",
+                hybrid_correct_minority_title,
                 hybrid_simulation['correct_minority'],
                 correct_minority_pct,
                 "True Negatives",
@@ -1892,8 +2151,13 @@ try:
         st.markdown('<div class="flow-arrow-diagonal">↘️</div>', unsafe_allow_html=True)
         if hybrid_simulation['total_classified_minority'] > 0:
             wrong_minority_pct = (hybrid_simulation['wrong_minority'] / hybrid_simulation['total_classified_minority'] * 100)
+            hybrid_wrong_minority_title = create_tooltip(
+                "❌ Wrong (Normal→Defect)",
+                "These are samples that were incorrectly classified as defective with high confidence. The hybrid system's high threshold helps minimize these false alarms, but some may still occur.",
+                "top"
+            )
             st.markdown(create_classification_card(
-                "❌ Wrong",
+                hybrid_wrong_minority_title,
                 hybrid_simulation['wrong_minority'],
                 wrong_minority_pct,
                 "False Positives",
@@ -1907,8 +2171,13 @@ try:
         st.markdown('<div class="flow-arrow-diagonal">↙️</div>', unsafe_allow_html=True)
         if hybrid_simulation['total_manual_inspection'] > 0:
             manual_minority_pct = (hybrid_simulation['manual_from_minority'] / hybrid_simulation['total_manual_inspection'] * 100)
+            manual_defect_title = create_tooltip(
+                "📋 Defect",
+                "These are samples that are actually defective but had low confidence scores, so they were sent to manual inspection. The hybrid system ensures these get proper human attention.",
+                "top"
+            )
             st.markdown(create_div_card('manual-breakdown classification-card', f'''
-                <h5>📋 Defect</h5>
+                <h5>{manual_defect_title}</h5>
                 <h3>{hybrid_simulation['manual_from_minority']:,}</h3>
                 <p>{manual_minority_pct:.1f}%</p>
             '''), unsafe_allow_html=True)
@@ -1920,8 +2189,13 @@ try:
         st.markdown('<div class="flow-arrow-diagonal">↘️</div>', unsafe_allow_html=True)
         if hybrid_simulation['total_manual_inspection'] > 0:
             manual_majority_pct = (hybrid_simulation['manual_from_majority'] / hybrid_simulation['total_manual_inspection'] * 100)
+            manual_normal_title = create_tooltip(
+                "📋 Normal",
+                "These are samples that are actually normal but had low confidence scores, so they were sent to manual inspection. The hybrid system ensures these get proper human attention.",
+                "top"
+            )
             st.markdown(create_div_card('manual-breakdown classification-card', f'''
-                <h5>📋 Normal</h5>
+                <h5>{manual_normal_title}</h5>
                 <h3>{hybrid_simulation['manual_from_majority']:,}</h3>
                 <p>{manual_majority_pct:.1f}%</p>
             '''), unsafe_allow_html=True)
@@ -1933,8 +2207,13 @@ try:
         st.markdown('<div class="flow-arrow-diagonal">↙️</div>', unsafe_allow_html=True)
         if hybrid_simulation['total_classified_majority'] > 0:
             correct_majority_pct = (hybrid_simulation['correct_majority'] / hybrid_simulation['total_classified_majority'] * 100)
+            hybrid_correct_majority_title = create_tooltip(
+                "✅ Correct (Normal)",
+                "These are samples that were correctly classified as normal with high confidence. The hybrid system allows these to be automatically approved without human review, improving efficiency.",
+                "top"
+            )
             st.markdown(create_classification_card(
-                "✅ Correct",
+                hybrid_correct_majority_title,
                 hybrid_simulation['correct_majority'],
                 correct_majority_pct,
                 "True Positives",
@@ -1948,8 +2227,13 @@ try:
         st.markdown('<div class="flow-arrow-diagonal">↘️</div>', unsafe_allow_html=True)
         if hybrid_simulation['total_classified_majority'] > 0:
             wrong_majority_pct = (hybrid_simulation['wrong_majority'] / hybrid_simulation['total_classified_majority'] * 100)
+            hybrid_wrong_majority_title = create_tooltip(
+                "❌ Wrong (Defect→Normal)",
+                "These are samples that were incorrectly classified as normal with high confidence. The hybrid system's high threshold helps minimize these quality escapes, but some may still occur.",
+                "top"
+            )
             st.markdown(create_classification_card(
-                "❌ Wrong",
+                hybrid_wrong_majority_title,
                 hybrid_simulation['wrong_majority'],
                 wrong_majority_pct,
                 "False Negatives",
@@ -1961,7 +2245,12 @@ try:
     
     # Strategic Threshold Analysis
     st.markdown("---")
-    st.markdown("### 🎯 Strategic Threshold Optimization")
+    strategic_title_html = create_tooltip(
+        "🎯 Strategic Threshold Optimization",
+        "This section provides insights into optimal threshold settings for manufacturing environments. It explains why balanced manual inspection workloads are important for maintaining quality standards and inspector performance.",
+        "top"
+    )
+    st.markdown(f"### {strategic_title_html}", unsafe_allow_html=True)
     
     # Calculate current manual inspection split
     manual_defect_ratio = (hybrid_simulation['manual_from_minority'] / hybrid_simulation['total_manual_inspection'] * 100) if hybrid_simulation['total_manual_inspection'] > 0 else 0
@@ -2021,9 +2310,26 @@ try:
     raw_df = model_data['data_info']['raw_df']
     
     # Misclassified Samples Visualization
-    st.markdown("### ❌ Misclassified Samples (From 5-Fold Cross-Validation)")
-    st.markdown("**Navigate through misclassified data points ordered by confidence (highest to lowest)**")
-    st.markdown("💡 **Tip:** You can relabel or discard any misclassified sample by clicking the buttons above each plot.")
+    misclassified_title_html = create_tooltip(
+        "❌ Misclassified Samples (From 5-Fold Cross-Validation)",
+        "This section shows samples that the AI model classified incorrectly during cross-validation testing. These are ordered by confidence level (highest to lowest) to help you identify the most confident mistakes first.",
+        "top"
+    )
+    st.markdown(f"### {misclassified_title_html}", unsafe_allow_html=True)
+    
+    navigation_text_html = create_tooltip(
+        "Navigate through misclassified data points ordered by confidence (highest to lowest)",
+        "The samples are sorted by the AI's confidence in its incorrect prediction. This helps prioritize which mistakes to review first - start with high-confidence errors as they may indicate systematic issues.",
+        "top"
+    )
+    st.markdown(f"**{navigation_text_html}**", unsafe_allow_html=True)
+    
+    tip_text_html = create_tooltip(
+        "💡 **Tip:** You can relabel or discard any misclassified sample by clicking the buttons above each plot.",
+        "Use the relabel buttons to correct the ground truth labels if you believe the AI was actually right. Use the discard button to mark samples as abnormal data that should be removed from training.",
+        "top"
+    )
+    st.markdown(f"{tip_text_html}", unsafe_allow_html=True)
     
     # Recalculate misclassified samples for current threshold
     all_misclassified = []
@@ -2082,11 +2388,29 @@ try:
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Total Misclassified", total_misclassified)
+            total_misclassified_metric_html = create_tooltip(
+                "Total Misclassified",
+                "Total number of samples that the AI model classified incorrectly during cross-validation testing with the current threshold settings.",
+                "top"
+            )
+            st.markdown(f"**{total_misclassified_metric_html}**", unsafe_allow_html=True)
+            st.metric("", total_misclassified)
         with col2:
-            st.metric("False Positives", false_positives)
+            false_positives_metric_html = create_tooltip(
+                "False Positives",
+                "Samples that are actually normal but were incorrectly classified as defective. These represent unnecessary rejections in manufacturing.",
+                "top"
+            )
+            st.markdown(f"**{false_positives_metric_html}**", unsafe_allow_html=True)
+            st.metric("", false_positives)
         with col3:
-            st.metric("False Negatives", false_negatives)
+            false_negatives_metric_html = create_tooltip(
+                "False Negatives",
+                "Samples that are actually defective but were incorrectly classified as normal. These represent quality escapes in manufacturing.",
+                "top"
+            )
+            st.markdown(f"**{false_negatives_metric_html}**", unsafe_allow_html=True)
+            st.metric("", false_negatives)
         
         st.info(f"Navigate through {total_misclassified} misclassified samples ordered by confidence (highest to lowest).")
         
