@@ -328,26 +328,122 @@ st.markdown("""
         border-color: transparent transparent #333 transparent;
     }
     
-    /* Sidebar tooltip positioning - force right positioning */
+    /* Sidebar tooltip positioning - force right positioning and escape sidebar */
     .sidebar-tooltip {
         font-weight: bold;
+        position: relative;
+        z-index: 1001;
     }
     
     .sidebar-tooltip .tooltiptext {
-        top: -5px;
-        left: 110%;
+        top: 50% !important;
+        left: 400px !important;
         right: auto;
         bottom: auto;
         margin-left: 0;
-        width: 250px;
+        width: 300px;
+        z-index: 999999 !important;
+        position: fixed !important;
+        /* Position to the right of sidebar */
+        transform: translateY(-50%) !important;
+        /* Ensure tooltip can escape sidebar boundaries */
+        overflow: visible !important;
+        white-space: normal;
+        word-wrap: break-word;
+        /* Force it to stay on top of everything */
+        pointer-events: none;
+        /* Let CSS hover states control visibility */
+        visibility: hidden;
+        opacity: 0;
     }
     
     .sidebar-tooltip .tooltiptext::after {
-        top: 20px;
+        top: 50%;
         left: -5px;
         right: auto;
+        margin-top: -5px;
         border-color: transparent #333 transparent transparent;
     }
+    
+    /* Ensure sidebar doesn't clip tooltips - target multiple possible sidebar classes */
+    .css-1d391kg,
+    .css-1cypcdb,
+    .stSidebar,
+    [data-testid="stSidebar"] {
+        overflow: visible !important;
+    }
+    
+    /* Force tooltip to appear outside sidebar with higher z-index */
+    .sidebar-tooltip:hover .tooltiptext {
+        visibility: visible !important;
+        opacity: 1 !important;
+        z-index: 999999 !important;
+        position: fixed !important;
+    }
+    
+    /* Additional CSS to ensure tooltips escape sidebar boundaries */
+    .sidebar-tooltip .tooltiptext {
+        max-width: 300px;
+        min-width: 200px;
+        z-index: 999999 !important;
+        position: absolute !important;
+    }
+    
+    /* Ensure main content has lower z-index than tooltips */
+    .main .block-container,
+    .main .element-container,
+    .main .stMarkdown,
+    .main .stMetric,
+    .main .stDataFrame,
+    .main .stPlotlyChart,
+    .main .stColumns,
+    .main .stColumn,
+    .main .stContainer,
+    .main .stExpander {
+        z-index: 1 !important;
+        position: relative !important;
+    }
+    
+    /* Target specific Streamlit classes that might overlap */
+    .css-1d391kg,
+    .css-1cypcdb,
+    .css-1v0mbdj,
+    .css-1r6slb0 {
+        z-index: 1 !important;
+    }
+    
+    /* Force ALL main content to stay below tooltips */
+    .main,
+    .main *,
+    .main .block-container *,
+    .main .element-container * {
+        z-index: 1 !important;
+    }
+    
+    /* Ensure tooltips are above everything */
+    .sidebar-tooltip,
+    .sidebar-tooltip * {
+        z-index: 999999 !important;
+    }
+    
+    /* Force tooltip to stay on top of everything */
+    .sidebar-tooltip .tooltiptext {
+        z-index: 999999 !important;
+        position: fixed !important;
+        /* Ensure it's above all other elements */
+        pointer-events: none;
+        /* Position it to the right of the sidebar */
+        left: 300px !important;
+        top: auto !important;
+        transform: translateY(-50%) !important;
+    }
+    
+    /* Make sure the tooltip container can contain the tooltip */
+    .sidebar-tooltip {
+        z-index: 999999 !important;
+        position: relative !important;
+    }
+    
     
     /* Info icon styling */
     .info-icon {
@@ -374,6 +470,7 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
 
 # Utility functions to reduce redundancy
 def create_div_card(class_name, content, extra_class=""):
@@ -1605,10 +1702,9 @@ with col1:
     st.markdown(f"**{corrections_html}**", unsafe_allow_html=True)
     st.metric("Count", len(st.session_state.relabeled_data), label_visibility="collapsed")
 with col2:
-    discarded_html = create_tooltip(
+    discarded_html = create_sidebar_tooltip(
         "Discarded",
-        "Number of samples you have marked for removal from training. These samples will be excluded when you retrain the model.",
-        "top"
+        "Number of samples you have marked for removal from training. These samples will be excluded when you retrain the model."
     )
     st.markdown(f"**{discarded_html}**", unsafe_allow_html=True)
     st.metric("Count", len(st.session_state.discarded_data), label_visibility="collapsed")
