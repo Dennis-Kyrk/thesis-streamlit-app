@@ -441,7 +441,7 @@ def create_navigation_controls(session_key, current_index, total_items, item_nam
     # Quick navigation slider
     col1, col2 = st.columns([3, 1])
     with col1:
-        new_index = st.slider(f"Jump to {item_name}:", 
+        new_index = st.slider(f"Jump to {item_name}", 
                              min_value=1, 
                              max_value=total_items,
                              value=current_index + 1,
@@ -1603,7 +1603,7 @@ with col1:
         "Number of samples you have relabeled (changed from their original ground truth labels). These changes will be applied when you retrain the model."
     )
     st.markdown(f"**{corrections_html}**", unsafe_allow_html=True)
-    st.metric("", len(st.session_state.relabeled_data))
+    st.metric("Count", len(st.session_state.relabeled_data), label_visibility="collapsed")
 with col2:
     discarded_html = create_tooltip(
         "Discarded",
@@ -1611,7 +1611,7 @@ with col2:
         "top"
     )
     st.markdown(f"**{discarded_html}**", unsafe_allow_html=True)
-    st.metric("", len(st.session_state.discarded_data))
+    st.metric("Count", len(st.session_state.discarded_data), label_visibility="collapsed")
 
 # Show details in expanders
 if st.session_state.relabeled_data:
@@ -1883,7 +1883,7 @@ try:
         if simulation_results['total_classified_majority'] > 0:
             wrong_majority_pct = (simulation_results['wrong_majority'] / simulation_results['total_classified_majority'] * 100)
             wrong_majority_title = create_tooltip(
-                "❌ Wrong (Normal)",
+                "❌ Wrong (Defect)",
                 "These are samples that were incorrectly classified as normal when they are actually defective. In manufacturing, these represent quality escapes - defective products that reach customers and can cause serious problems.",
                 "top"
             )
@@ -1923,7 +1923,7 @@ try:
         if simulation_results['total_classified_minority'] > 0:
             wrong_minority_pct = (simulation_results['wrong_minority'] / simulation_results['total_classified_minority'] * 100)
             wrong_minority_title = create_tooltip(
-                "❌ Wrong (Defect)",
+                "❌ Wrong (Normal)",
                 "These are samples that were incorrectly classified as defective when they are actually normal. In manufacturing, these represent false alarms that waste resources and slow down production.",
                 "top"
             )
@@ -2051,6 +2051,12 @@ try:
         st.session_state.optimal_thresholds_applied = False
         st.rerun()
     
+    def update_majority_threshold():
+        st.session_state.majority_threshold = st.session_state.majority_slider
+    
+    def update_minority_threshold():
+        st.session_state.minority_threshold = st.session_state.minority_slider
+    
     with col1:
         majority_threshold = st.slider(
             "🟢 Normal Threshold", 
@@ -2060,12 +2066,12 @@ try:
             step=0.001,
             format="%.3f",
             help="This threshold controls how confident the AI must be to automatically classify a sample as normal. Higher values mean fewer false negatives but more samples sent to manual inspection.",
-            key="majority_slider"
+            key="majority_slider",
+            on_change=update_majority_threshold
         )
-        st.session_state.majority_threshold = majority_threshold
     
     with col2:
-        st.markdown("")  # Empty column for spacing
+        st.markdown("&nbsp;")  # Empty column for spacing
     
     with col3:
         minority_threshold = st.slider(
@@ -2076,9 +2082,9 @@ try:
             step=0.001,
             format="%.3f",
             help="This threshold controls how confident the AI must be to automatically classify a sample as defective. Higher values mean fewer false positives but more samples sent to manual inspection.",
-            key="minority_slider"
+            key="minority_slider",
+            on_change=update_minority_threshold
         )
-        st.session_state.minority_threshold = minority_threshold
     
     # Simulate classification with current user thresholds (calculated after sliders are set)
     hybrid_simulation = simulate_classification_split(total_points, all_y_test, all_y_pred_proba, minority_threshold, majority_threshold)
@@ -2157,7 +2163,7 @@ try:
         if hybrid_simulation['total_classified_majority'] > 0:
             wrong_majority_pct = (hybrid_simulation['wrong_majority'] / hybrid_simulation['total_classified_majority'] * 100)
             hybrid_wrong_majority_title = create_tooltip(
-                "❌ Wrong (Normal)",
+                "❌ Wrong (Defect)",
                 "These are samples that were incorrectly classified as normal with high confidence. The hybrid system's high threshold helps minimize these quality escapes, but some may still occur.",
                 "top"
             )
@@ -2233,7 +2239,7 @@ try:
         if hybrid_simulation['total_classified_minority'] > 0:
             wrong_minority_pct = (hybrid_simulation['wrong_minority'] / hybrid_simulation['total_classified_minority'] * 100)
             hybrid_wrong_minority_title = create_tooltip(
-                "❌ Wrong (Defect)",
+                "❌ Wrong (Normal)",
                 "These are samples that were incorrectly classified as defective with high confidence. The hybrid system's high threshold helps minimize these false alarms, but some may still occur.",
                 "top"
             )
@@ -2399,7 +2405,7 @@ try:
                 "top"
             )
             st.markdown(f"**{total_misclassified_metric_html}**", unsafe_allow_html=True)
-            st.metric("", total_misclassified)
+            st.metric("Count", total_misclassified, label_visibility="collapsed")
         with col2:
             false_positives_metric_html = create_tooltip(
                 "False Positives",
@@ -2407,7 +2413,7 @@ try:
                 "top"
             )
             st.markdown(f"**{false_positives_metric_html}**", unsafe_allow_html=True)
-            st.metric("", false_positives)
+            st.metric("Count", false_positives, label_visibility="collapsed")
         with col3:
             false_negatives_metric_html = create_tooltip(
                 "False Negatives",
@@ -2415,7 +2421,7 @@ try:
                 "top"
             )
             st.markdown(f"**{false_negatives_metric_html}**", unsafe_allow_html=True)
-            st.metric("", false_negatives)
+            st.metric("Count", false_negatives, label_visibility="collapsed")
         
         st.info(f"Navigate through {total_misclassified} misclassified samples ordered by confidence (highest to lowest).")
         
