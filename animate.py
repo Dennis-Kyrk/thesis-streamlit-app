@@ -525,7 +525,13 @@ def create_navigation_controls(session_key, current_index, total_items, item_nam
             st.rerun()
     
     with col2:
-        st.markdown(f"<div class='sample-counter'>Sample {current_index + 1} of {total_items}</div>", 
+        # Create tooltip for sample counter
+        sample_counter_html = create_tooltip(
+            f"Sample {current_index + 1} of {total_items}",
+            f"Navigate through {total_items} {item_name}s ordered by confidence (highest to lowest). Use the Previous/Next buttons or slider below to explore different samples.",
+            "top"
+        )
+        st.markdown(f"<div class='sample-counter'>{sample_counter_html}</div>", 
                    unsafe_allow_html=True)
     
     with col3:
@@ -1015,13 +1021,6 @@ def train_model_with_cross_validation(_corrections_count=0, _discards_count=0):
             
             return model_data
     
-    # Show training status for full retraining
-    if _corrections_count > 0 or _discards_count > 0:
-        st.markdown("### 🔄 Retraining Model with Data Changes")
-        st.info(f"Corrections: {_corrections_count} | Discarded: {_discards_count}")
-    else:
-        st.markdown("### 🚀 Initial Model Training")
-        st.info("Training AI with 5-fold cross-validation...")
     
     data_dict = load_real_data()
     if data_dict is None:
@@ -1080,8 +1079,6 @@ def train_model_with_cross_validation(_corrections_count=0, _discards_count=0):
     
     # Apply relabeled data if any exists (only to non-discarded samples)
     if 'relabeled_data' in st.session_state and st.session_state.relabeled_data and _corrections_count > 0:
-        st.write(f"📝 Applying {len(st.session_state.relabeled_data)} label corrections...")
-        
         applied_corrections = 0
         labels_changed = {'0_to_1': 0, '1_to_0': 0}
         failed_corrections = []
@@ -1135,10 +1132,6 @@ def train_model_with_cross_validation(_corrections_count=0, _discards_count=0):
             except Exception as e:
                 failed_corrections.append(f"Group {group_id_str}: {str(e)}")
                 
-        st.write(f"✅ Successfully applied {applied_corrections} corrections:")
-        st.write(f"   • {labels_changed['0_to_1']} changed from Defective to Normal")
-        st.write(f"   • {labels_changed['1_to_0']} changed from Normal to Defective")
-        
         if failed_corrections and st.checkbox("Show failed corrections"):
             for failure in failed_corrections:
                 st.write(f"❌ {failure}")
@@ -1552,14 +1545,45 @@ def display_sample_info(group_id, true_label, pred_label, confidence, fold, is_r
     if is_discarded:
         status_indicators += " | <span style='color: #d32f2f;'>🗑️ Marked for Discard</span>"
     
+    # Create tooltips for each field
+    true_label_tooltip = create_tooltip(
+        "True Label",
+        "The original ground truth label assigned to this sample during data collection. This is what the sample should be classified as according to human experts.",
+        "top"
+    )
+    
+    predicted_tooltip = create_tooltip(
+        "Predicted",
+        "The AI model's prediction for this sample. This shows what the model classified the sample as based on its analysis.",
+        "top"
+    )
+    
+    confidence_tooltip = create_tooltip(
+        "Confidence",
+        "The AI model's confidence score (0.0 to 1.0) for its prediction. Higher values indicate the model is more certain about its classification.",
+        "top"
+    )
+    
+    status_tooltip = create_tooltip(
+        "Status",
+        "The true quality/type classification of this data sample: Normal (good quality), Defect (clear defect), Uncertain (borderline - could be normal deviation or small defect), or Misclassified (data that was clearly wrongly labeled during collection).",
+        "top"
+    )
+    
+    fold_tooltip = create_tooltip(
+        "Fold",
+        "The cross-validation fold (1-5) where this sample was used for testing. Each sample appears in exactly one test fold during 5-fold cross-validation.",
+        "top"
+    )
+    
     st.markdown(f"""
     <div style="{box_style} padding: 15px; border-radius: 8px; margin-bottom: 20px;">
         <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-            <div><strong>True Label:</strong> {true_label_text}{status_indicators}</div>
-            <div><strong>Predicted:</strong> {pred_label_text}</div>
-            <div><strong>Confidence:</strong> {confidence:.4f}</div>
-            <div><strong>Status:</strong> {status}</div> <!-- 👈 NEW -->
-            <div><strong>Fold:</strong> {fold}</div>
+            <div><strong>{true_label_tooltip}:</strong> {true_label_text}{status_indicators}</div>
+            <div><strong>{predicted_tooltip}:</strong> {pred_label_text}</div>
+            <div><strong>{confidence_tooltip}:</strong> {confidence:.4f}</div>
+            <div><strong>{status_tooltip}:</strong> {status}</div>
+            <div><strong>{fold_tooltip}:</strong> {fold}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1574,6 +1598,7 @@ def display_relabel_buttons(group_id, fold, is_relabeled, is_discarded):
                     disabled=is_discarded,
                     help="Relabel as Normal"):
             st.session_state.relabeled_data[str(group_id)] = 1
+            st.session_state.data_management_shown = True
             save_corrections()
             st.rerun()
     
@@ -1582,6 +1607,7 @@ def display_relabel_buttons(group_id, fold, is_relabeled, is_discarded):
                     disabled=is_discarded,
                     help="Relabel as Defective"):
             st.session_state.relabeled_data[str(group_id)] = 0
+            st.session_state.data_management_shown = True
             save_corrections()
             st.rerun()
     
@@ -1591,6 +1617,7 @@ def display_relabel_buttons(group_id, fold, is_relabeled, is_discarded):
                         type="secondary",
                         help="Mark this sample as abnormal data to remove from training"):
                 st.session_state.discarded_data.add(str(group_id))
+                st.session_state.data_management_shown = True
                 # Remove from relabeled if it was there
                 if str(group_id) in st.session_state.relabeled_data:
                     del st.session_state.relabeled_data[str(group_id)]
@@ -1677,72 +1704,73 @@ if not os.path.exists('wave_dataset.parquet'):
     st.error("❌ Missing 'wave_dataset.parquet' file")
     st.stop()
 
-# Add data management section in sidebar (loaded early to prevent layout shifts)
-st.sidebar.markdown("---")
-sidebar_title_html = create_sidebar_tooltip(
-    "🏷️ Data Management",
-    "This section allows you to manage data corrections and discards. You can relabel samples that were incorrectly classified or mark samples as abnormal data to remove from training."
-)
-st.sidebar.markdown(f"### {sidebar_title_html}", unsafe_allow_html=True)
-
-# Show statistics
-col1, col2 = st.sidebar.columns(2)
-with col1:
-    corrections_html = create_sidebar_tooltip(
-        "Corrections",
-        "Number of samples you have relabeled (changed from their original ground truth labels). These changes will be applied when you retrain the model."
+# Add data management section in sidebar (only show when there are changes or once shown)
+if st.session_state.relabeled_data or st.session_state.discarded_data or st.session_state.get('data_management_shown', False):
+    st.sidebar.markdown("---")
+    sidebar_title_html = create_sidebar_tooltip(
+        "🏷️ Data Management",
+        "This section allows you to manage data corrections and discards. You can relabel samples that were incorrectly classified or mark samples as abnormal data to remove from training."
     )
-    st.markdown(f"**{corrections_html}**", unsafe_allow_html=True)
-    st.metric("Count", len(st.session_state.relabeled_data), label_visibility="collapsed")
-with col2:
-    discarded_html = create_sidebar_tooltip(
-        "Discarded",
-        "Number of samples you have marked for removal from training. These samples will be excluded when you retrain the model."
-    )
-    st.markdown(f"**{discarded_html}**", unsafe_allow_html=True)
-    st.metric("Count", len(st.session_state.discarded_data), label_visibility="collapsed")
+    st.sidebar.markdown(f"### {sidebar_title_html}", unsafe_allow_html=True)
 
-# Show details in expanders
-if st.session_state.relabeled_data:
-    with st.sidebar.expander("View Corrections"):
+    # Show statistics
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        corrections_html = create_sidebar_tooltip(
+            "Corrections",
+            "Number of samples you have relabeled (changed from their original ground truth labels). These changes will be applied when you retrain the model."
+        )
+        st.markdown(f"**{corrections_html}**", unsafe_allow_html=True)
+        st.metric("Count", len(st.session_state.relabeled_data), label_visibility="collapsed")
+    with col2:
+        discarded_html = create_sidebar_tooltip(
+            "Discarded",
+            "Number of samples you have marked for removal from training. These samples will be excluded when you retrain the model."
+        )
+        st.markdown(f"**{discarded_html}**", unsafe_allow_html=True)
+        st.metric("Count", len(st.session_state.discarded_data), label_visibility="collapsed")
+
+    # Show details in expanders
+    if st.session_state.relabeled_data:
+        with st.sidebar.expander("View Corrections"):
+            for group_id_str, new_label in st.session_state.relabeled_data.items():
+                label_text = "Normal" if new_label == 1 else "Defective"
+                st.write(f"Group {group_id_str}: → {label_text}")
+
+    if st.session_state.discarded_data:
+        with st.sidebar.expander("View Discarded"):
+            for group_id_str in st.session_state.discarded_data:
+                st.write(f"Group {group_id_str}")
+
+    # Export data changes
+    if st.session_state.relabeled_data or st.session_state.discarded_data:
+        # Prepare combined data for export
+        export_data = []
+        
+        # Add corrections
         for group_id_str, new_label in st.session_state.relabeled_data.items():
-            label_text = "Normal" if new_label == 1 else "Defective"
-            st.write(f"Group {group_id_str}: → {label_text}")
-
-if st.session_state.discarded_data:
-    with st.sidebar.expander("View Discarded"):
+            export_data.append({
+                'group_id': group_id_str,
+                'action': 'relabel',
+                'new_label': new_label
+            })
+        
+        # Add discards
         for group_id_str in st.session_state.discarded_data:
-            st.write(f"Group {group_id_str}")
-
-# Export data changes
-if st.session_state.relabeled_data or st.session_state.discarded_data:
-    # Prepare combined data for export
-    export_data = []
-    
-    # Add corrections
-    for group_id_str, new_label in st.session_state.relabeled_data.items():
-        export_data.append({
-            'group_id': group_id_str,
-            'action': 'relabel',
-            'new_label': new_label
-        })
-    
-    # Add discards
-    for group_id_str in st.session_state.discarded_data:
-        export_data.append({
-            'group_id': group_id_str,
-            'action': 'discard',
-            'new_label': None
-        })
-    
-    export_df = pd.DataFrame(export_data)
-    csv = export_df.to_csv(index=False)
-    st.sidebar.download_button(
-        label="📥 Export All Changes",
-        data=csv,
-        file_name=f"data_changes_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
-        mime="text/csv"
-    )
+            export_data.append({
+                'group_id': group_id_str,
+                'action': 'discard',
+                'new_label': None
+            })
+        
+        export_df = pd.DataFrame(export_data)
+        csv = export_df.to_csv(index=False)
+        st.sidebar.download_button(
+            label="📥 Export All Changes",
+            data=csv,
+            file_name=f"data_changes_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv"
+        )
 
 
 # Debug: Show current state (moved after model_data is defined)
@@ -1751,6 +1779,15 @@ if st.session_state.relabeled_data or st.session_state.discarded_data:
 try:
     corrections_count = len(st.session_state.relabeled_data)
     discards_count = len(st.session_state.discarded_data)
+    
+    # Show training status before calling the cached function
+    if corrections_count > 0 or discards_count > 0:
+        st.markdown("### 🔄 Retraining Model with Data Changes")
+        st.info(f"Corrections: {corrections_count} | Discarded: {discards_count}")
+    elif not st.session_state.get('model_trained', False):
+        st.markdown("### 🚀 Initial Model Training")
+        st.info("Training AI with 5-fold cross-validation...")
+    
     model_data = train_model_with_cross_validation(_corrections_count=corrections_count, _discards_count=discards_count)
     
     if model_data is None:
@@ -1767,47 +1804,53 @@ try:
     avg_metrics = model_data['avg_metrics']
     all_misclassified_data = model_data['all_misclassified_data']
     
-    # Add retraining controls that depend on model data
-    # Check if model needs retraining
-    needs_retrain = False
-    if (len(st.session_state.relabeled_data) > 0 and 
-        model_data.get('corrections_applied', 0) < len(st.session_state.relabeled_data)):
-        needs_retrain = True
-    if (len(st.session_state.discarded_data) > 0 and 
-        model_data.get('discards_applied', 0) < len(st.session_state.discarded_data)):
-        needs_retrain = True
-    
-    if needs_retrain:
-        st.sidebar.warning("⚠️ Model needs retraining to apply changes")
-    
-    if st.sidebar.button("🔄 Retrain AI", 
-                        type="primary" if needs_retrain else "secondary",
-                        help="Retrain the model with corrected labels and discarded samples"):
-        st.session_state.retrain_counter += 1
-        st.cache_resource.clear()
-        st.rerun()
-    
-    # Add note about training time
-    st.sidebar.markdown("""
-    <div style="background-color: #fff3e0; padding: 0.8rem; border-radius: 6px; border-left: 3px solid #ff9800; margin: 0.5rem 0;">
-        <small><strong>⏱️ Training Note:</strong> Retraining takes several minutes in this Streamlit environment but only seconds on a local machine. The model will still train successfully.</small>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Clear buttons
-    col1, col2 = st.sidebar.columns(2)
-    with col1:
-        if st.sidebar.button("🗑️ Clear Corrections"):
-            st.session_state.relabeled_data = {}
-            save_corrections()
-            st.cache_resource.clear()
-            st.rerun()
-    with col2:
-        if st.sidebar.button("🗑️ Clear Discards"):
-            st.session_state.discarded_data = set()
-            save_discards()
-            st.cache_resource.clear()
-            st.rerun()
+    # Add retraining controls that depend on model data (only show when there are changes or once shown)
+    if st.session_state.relabeled_data or st.session_state.discarded_data or st.session_state.get('data_management_shown', False):
+        st.sidebar.markdown("---")
+        
+        # Apply/Revert Changes buttons with dynamic styling
+        col1, col2 = st.sidebar.columns(2)
+        
+        # Determine current state
+        is_applied = st.session_state.get('apply_changes_to_viz', False)
+        
+        with col1:
+            apply_button_type = "primary" if is_applied else "secondary"
+            if st.button("📊 Adjusted Data", 
+                       type=apply_button_type,
+                       help="Show visualizations with your label corrections and discards applied"):
+                st.session_state.apply_changes_to_viz = True
+                st.rerun()
+        
+        with col2:
+            revert_button_type = "primary" if not is_applied else "secondary"
+            if st.button("📋 Original Data", 
+                       type=revert_button_type,
+                       help="Show visualizations with original ground truth labels (keeps your changes)"):
+                st.session_state.apply_changes_to_viz = False
+                st.rerun()
+        
+        # Explanation about retraining removal
+        st.sidebar.markdown("""
+        <div style="background-color: #f3e5f5; padding: 0.8rem; border-radius: 6px; border-left: 3px solid #9c27b0; margin: 0.5rem 0;">
+            <small><strong>ℹ️ Model Retraining:</strong> AI retraining has been removed due to Streamlit performance constraints. Instead, you can apply your data point changes to see updated visualizations immediately.</small>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Clear buttons
+        col3, col4 = st.sidebar.columns(2)
+        with col3:
+            if st.sidebar.button("🗑️ Clear Corrections"):
+                st.session_state.relabeled_data = {}
+                save_corrections()
+                st.cache_resource.clear()
+                st.rerun()
+        with col4:
+            if st.sidebar.button("🗑️ Clear Discards"):
+                st.session_state.discarded_data = set()
+                save_discards()
+                st.cache_resource.clear()
+                st.rerun()
 
     
     # Initialize default thresholds (will be set in the visualization)
@@ -1828,14 +1871,44 @@ try:
         st.session_state.prev_majority_threshold = majority_threshold
     
     
+    # Apply user changes to data for visualizations if requested
+    viz_y_test = all_y_test.copy()
+    if st.session_state.get('apply_changes_to_viz', False):
+        # Apply relabeling changes to test data for visualizations
+        for group_id_str, new_label in st.session_state.relabeled_data.items():
+            # Find the group in test data and update its label
+            group_indices = np.where(all_groups_test == int(group_id_str))[0]
+            if len(group_indices) > 0:
+                viz_y_test[group_indices[0]] = new_label
+        
+        # Remove discarded samples from visualizations
+        discarded_mask = np.ones(len(all_y_test), dtype=bool)
+        for group_id_str in st.session_state.discarded_data:
+            group_indices = np.where(all_groups_test == int(group_id_str))[0]
+            if len(group_indices) > 0:
+                discarded_mask[group_indices[0]] = False
+        
+        # Apply mask to all data arrays
+        viz_y_test = viz_y_test[discarded_mask]
+        viz_y_pred_proba = all_y_pred_proba[discarded_mask]
+        viz_groups_test = all_groups_test[discarded_mask]
+        
+        # Reset the flag
+        st.session_state.apply_changes_to_viz = False
+    else:
+        # Use original data
+        viz_y_test = all_y_test
+        viz_y_pred_proba = all_y_pred_proba
+        viz_groups_test = all_groups_test
+    
     # Calculate real performance metrics
     current_metrics = calculate_metrics_with_threshold(all_y_test, all_y_pred_proba, minority_threshold, majority_threshold)
     
     # Calculate actual results for the real data points with fixed thresholds
-    total_points = len(all_y_test)  # Actual number of data points
+    total_points = len(viz_y_test)  # Actual number of data points (after applying changes if requested)
     fixed_minority_threshold = 0.5
     fixed_majority_threshold = 0.5
-    simulation_results = calculate_actual_classification_results(all_y_test, all_y_pred_proba, fixed_minority_threshold, fixed_majority_threshold)
+    simulation_results = calculate_actual_classification_results(viz_y_test, viz_y_pred_proba, fixed_minority_threshold, fixed_majority_threshold)
     
     
     # Data Flow Visualization
@@ -2181,7 +2254,7 @@ try:
         )
     
     # Calculate actual results with current user thresholds (calculated after sliders are set)
-    hybrid_simulation = calculate_actual_classification_results(all_y_test, all_y_pred_proba, minority_threshold, majority_threshold)
+    hybrid_simulation = calculate_actual_classification_results(viz_y_test, viz_y_pred_proba, minority_threshold, majority_threshold)
     
     # Three classification outputs
     col1, col2, col3 = st.columns(3)
@@ -2436,38 +2509,6 @@ try:
     )
     st.markdown(f"{tip_text_html}", unsafe_allow_html=True)
     
-    # Add filter buttons for different types of misclassifications
-    st.markdown("### 🔍 Explore Misclassification Types")
-    st.markdown("""
-    <div style="background-color: #f3e5f5; padding: 1rem; border-radius: 8px; border-left: 4px solid #9c27b0; margin: 1rem 0;">
-        <strong>💡 Data Quality Insight:</strong> Some "misclassified" samples may actually show the AI making correct predictions despite incorrect ground truth labels. Use the buttons below to explore different types of misclassifications and identify potential data quality issues.
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Filter buttons
-    col1, col2, col3 = st.columns([1, 1, 2])
-    
-    with col1:
-        show_false_positives = st.button(
-            "🔴 Defective Classified as Normal", 
-            help="Show defective samples incorrectly classified as normal (may indicate AI is actually correct)",
-            use_container_width=True
-        )
-    
-    with col2:
-        show_false_negatives = st.button(
-            "🟢 Normal Classified as Defective", 
-            help="Show normal samples incorrectly classified as defective (may indicate AI is actually correct)",
-            use_container_width=True
-        )
-    
-    with col3:
-        show_both = st.button(
-            "📊 Show Both Types", 
-            help="Show all misclassified samples (default view)",
-            use_container_width=True
-        )
-    
     # Recalculate misclassified samples for current threshold
     all_misclassified = []
     for fold in range(5):
@@ -2497,6 +2538,73 @@ try:
     total_misclassified = sum(data['count'] for data in all_misclassified)
     
     if total_misclassified > 0:
+        # Filter controls and metrics in a compact layout
+        st.markdown("---")
+        st.markdown("### 🔍 Filter & Explore Misclassifications")
+        
+        # Calculate simulation results for metrics display
+        total_misclassified_from_simulation = hybrid_simulation['wrong_majority'] + hybrid_simulation['wrong_minority']
+        false_positives_from_simulation = hybrid_simulation['wrong_minority']  # Normal classified as defective
+        false_negatives_from_simulation = hybrid_simulation['wrong_majority']  # Defective classified as normal
+        
+        # Metrics row right below header
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            total_misclassified_metric_html = create_tooltip(
+                "Total Misclassified",
+                "Total number of samples that the AI model classified incorrectly during cross-validation testing with the current threshold settings.",
+                "top"
+            )
+            st.markdown(f"**{total_misclassified_metric_html}**", unsafe_allow_html=True)
+            st.metric("Count", total_misclassified_from_simulation, label_visibility="collapsed")
+        with col2:
+            false_positives_metric_html = create_tooltip(
+                "Defective Classified as Normal",
+                "Samples that are actually defective but were incorrectly classified as normal. These represent quality escapes in manufacturing.",
+                "top"
+            )
+            st.markdown(f"**{false_positives_metric_html}**", unsafe_allow_html=True)
+            st.metric("Count", false_positives_from_simulation, label_visibility="collapsed")
+        with col3:
+            false_negatives_metric_html = create_tooltip(
+                "Normal Classified as Defective",
+                "Samples that are actually normal but were incorrectly classified as defective. These represent unnecessary rejections in manufacturing.",
+                "top"
+            )
+            st.markdown(f"**{false_negatives_metric_html}**", unsafe_allow_html=True)
+            st.metric("Count", false_negatives_from_simulation, label_visibility="collapsed")
+        
+        # Data quality insight
+        st.markdown("""
+        <div style="background-color: #f3e5f5; padding: 1rem; border-radius: 8px; border-left: 4px solid #9c27b0; margin: 1rem 0;">
+            <strong>💡 Data Quality Insight:</strong> Some "misclassified" samples may actually show the AI making correct predictions despite incorrect ground truth labels. Use the filter buttons below to explore different types and identify potential data quality issues.
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Filter buttons in a row
+        col1, col2, col3 = st.columns([1, 1, 1])
+        
+        with col1:
+            show_false_positives = st.button(
+                "🔴 Defective Classified as Normal", 
+                help="Show defective samples incorrectly classified as normal",
+                use_container_width=True
+            )
+        
+        with col2:
+            show_false_negatives = st.button(
+                "🟢 Normal Classified as Defective", 
+                help="Show normal samples incorrectly classified as defective",
+                use_container_width=True
+            )
+        
+        with col3:
+            show_both = st.button(
+                "📊 Show Both Types", 
+                help="Show all misclassified samples (default view)",
+                use_container_width=True
+            )
+        
         # Apply filtering based on button clicks, preserve current state if no button clicked
         if show_false_positives:
             filter_type = "false_positives"
@@ -2543,38 +2651,6 @@ try:
         # Sort all samples by confidence (highest to lowest)
         sorted_indices = np.argsort(combined_misclassified['confidences'])[::-1]
         
-        # Use simulation results to match the data flow visualization
-        # These should match the breakdown cards above
-        total_misclassified_from_simulation = hybrid_simulation['wrong_majority'] + hybrid_simulation['wrong_minority']
-        false_positives_from_simulation = hybrid_simulation['wrong_minority']  # Normal classified as defective
-        false_negatives_from_simulation = hybrid_simulation['wrong_majority']  # Defective classified as normal
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            total_misclassified_metric_html = create_tooltip(
-                "Total Misclassified",
-                "Total number of samples that the AI model classified incorrectly during cross-validation testing with the current threshold settings.",
-                "top"
-            )
-            st.markdown(f"**{total_misclassified_metric_html}**", unsafe_allow_html=True)
-            st.metric("Count", total_misclassified_from_simulation, label_visibility="collapsed")
-        with col2:
-            false_positives_metric_html = create_tooltip(
-                "Defective Classified as Normal",
-                "Samples that are actually defective but were incorrectly classified as normal. These represent quality escapes in manufacturing.",
-                "top"
-            )
-            st.markdown(f"**{false_positives_metric_html}**", unsafe_allow_html=True)
-            st.metric("Count", false_positives_from_simulation, label_visibility="collapsed")
-        with col3:
-            false_negatives_metric_html = create_tooltip(
-                "Normal Classified as Defective",
-                "Samples that are actually normal but were incorrectly classified as defective. These represent unnecessary rejections in manufacturing.",
-                "top"
-            )
-            st.markdown(f"**{false_negatives_metric_html}**", unsafe_allow_html=True)
-            st.metric("Count", false_negatives_from_simulation, label_visibility="collapsed")
-        
         # Update navigation text based on filter
         filtered_count = len(combined_misclassified['groups'])
         if filter_type == "false_positives":
@@ -2583,9 +2659,6 @@ try:
             filter_text = "normal samples classified as defective"
         else:
             filter_text = "misclassified samples"
-        
-        st.info(f"Navigate through {filtered_count} {filter_text} ordered by confidence (highest to lowest).")
-        
         
         # Navigation controls
         if st.session_state.misclassified_index >= len(sorted_indices):
