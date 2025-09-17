@@ -1489,7 +1489,7 @@ def plot_sequence(df, group_id, title=None, confidence=None):
     
     time = sequence_data['col1'].values
     measurements = sequence_data['col2'].values
-    label = "Normal" if sequence_data['label'].iloc[0] == 1 else "Not Normal"
+    label = "Normal" if sequence_data['label'].iloc[0] == 1 else "Defective"
     
     fig = go.Figure()
     
@@ -1578,7 +1578,7 @@ def display_relabel_buttons(group_id, fold, is_relabeled, is_discarded):
             st.rerun()
     
     with col2:
-        if st.button("❌ Not Normal", key=f"relabel_not_normal_{group_id}_{fold}",
+        if st.button("❌ Defective", key=f"relabel_not_normal_{group_id}_{fold}",
                     disabled=is_discarded,
                     help="Relabel as Defective"):
             st.session_state.relabeled_data[str(group_id)] = 0
@@ -2290,7 +2290,7 @@ try:
             st.markdown("*No samples*")
     
     with col4:
-        # Manual Inspection - True Not Normal
+        # Manual Inspection - True Defective
         st.markdown('<div class="flow-arrow-diagonal">↘️</div>', unsafe_allow_html=True)
         if hybrid_simulation['total_manual_inspection'] > 0:
             manual_minority_pct = (hybrid_simulation['manual_from_minority'] / hybrid_simulation['total_manual_inspection'] * 100)
