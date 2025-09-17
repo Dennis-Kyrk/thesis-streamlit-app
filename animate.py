@@ -1899,7 +1899,7 @@ try:
         "top"
     )
     processing_text = create_tooltip(
-        "Processing 10,000 data points through AI Model classification",
+        "Processing 10,000 data points through AI Model",
         "The model analyzes each data point and assigns probability scores. The double threshold system then uses these scores to decide: if confidence is high enough, classify automatically; otherwise, send to manual inspection.",
         "top"
     )
