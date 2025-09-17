@@ -2290,7 +2290,7 @@ try:
             st.markdown("*No samples*")
     
     with col4:
-        # Manual Inspection - True Defective
+        # Manual Inspection - True Not Normal
         st.markdown('<div class="flow-arrow-diagonal">↘️</div>', unsafe_allow_html=True)
         if hybrid_simulation['total_manual_inspection'] > 0:
             manual_minority_pct = (hybrid_simulation['manual_from_minority'] / hybrid_simulation['total_manual_inspection'] * 100)
@@ -2497,17 +2497,19 @@ try:
     total_misclassified = sum(data['count'] for data in all_misclassified)
     
     if total_misclassified > 0:
-        # Apply filtering based on button clicks
-        filter_type = "both"  # default
+        # Apply filtering based on button clicks, preserve current state if no button clicked
         if show_false_positives:
             filter_type = "false_positives"
+            st.session_state.misclassification_filter = filter_type
         elif show_false_negatives:
             filter_type = "false_negatives"
+            st.session_state.misclassification_filter = filter_type
         elif show_both:
             filter_type = "both"
-        
-        # Store filter type in session state for navigation
-        st.session_state.misclassification_filter = filter_type
+            st.session_state.misclassification_filter = filter_type
+        else:
+            # No filter button clicked, use current state or default to "both"
+            filter_type = st.session_state.get('misclassification_filter', 'both')
         # Create a combined list of all misclassified samples
         combined_misclassified = {
             'groups': [],
