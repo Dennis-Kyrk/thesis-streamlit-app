@@ -525,7 +525,7 @@ def create_navigation_controls(session_key, current_index, total_items, item_nam
             st.rerun()
     
     with col2:
-        st.markdown(f"<div class='sample-counter'>Sample {current_index + 1} of {total_items}</div>", 
+        st.markdown(f"<div class='sample-counter'>Sample {current_index + 1} of {total_items} (</div>", 
                    unsafe_allow_html=True)
     
     with col3:
@@ -2437,6 +2437,13 @@ try:
         "top"
     )
     st.markdown(f"{tip_text_html}", unsafe_allow_html=True)
+    
+    # Add note about ground truth quality issues
+    st.markdown("""
+    <div style="background-color: #fff8e1; padding: 1rem; border-radius: 8px; border-left: 4px solid #ffa726; margin: 1rem 0;">
+        <strong>📋 Data Quality Note:</strong> Some "misclassified" samples may actually show the AI making correct predictions despite incorrect ground truth labels. For example, <strong>Sample 28</strong> was originally labeled as normal during data creation, but the AI correctly identifies it as defective. In such cases, the model is performing better than the original labeling.
+    </div>
+    """, unsafe_allow_html=True)
     
     # Recalculate misclassified samples for current threshold
     all_misclassified = []
