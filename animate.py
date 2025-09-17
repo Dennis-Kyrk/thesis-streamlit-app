@@ -2060,7 +2060,7 @@ try:
         <li><strong>Among classified defective samples:</strong> {defective_error_rate:.1f}% are actually normal (false positives)</li>
         <li><strong>Among classified normal samples:</strong> {normal_error_rate:.1f}% are actually defective (false negatives)</li>
     </ul>
-    This means a normal product is <strong>{error_ratio:.1f} times more likely</strong> to be classified as a defect than a defect product being classified as normal.
+    This means that among products classified as defective by the AI, there are <strong>{error_ratio:.1f} times more</strong> false alarms (normal products incorrectly flagged) compared to the rate of quality escapes (defective products incorrectly approved) among those classified as normal.
     <br><br>
     <strong>The Critical Impact:</strong> The {defective_error_rate:.1f}% false positive rate means that nearly 1 in 3 products flagged as defective are actually good products. This <strong>excessive rejection of good products</strong> creates significant operational and financial challenges:
     <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
