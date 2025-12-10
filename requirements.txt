@@ -1,34 +1,23 @@
-# ------------------------------
 # Core app + UI
-# ------------------------------
-streamlit==1.37.0
-plotly==5.24.1
+streamlit
+plotly
 
-# ------------------------------
 # Data handling
-# ------------------------------
-pandas==2.2.2
-numpy==1.26.4
+pandas
+numpy
 
-# ------------------------------
-# Modeling (version-locked for compatibility)
-# ------------------------------
-scikit-learn==1.4.2
-imbalanced-learn==0.12.2
-xgboost==2.1.1
+# Modeling
+# Pin these for compatibility so imbalanced-learn and scikit-learn play nice
+scikit-learn<1.7
+imbalanced-learn==0.13.0
+xgboost
 
-# ------------------------------
-# Time-series feature extraction
-# ------------------------------
-tsfresh==0.20.2
+# Feature extraction from time series
+tsfresh
 
-# ------------------------------
-# File formats
-# ------------------------------
-pyarrow==16.1.0
+# Parquet support for pandas.read_parquet
+pyarrow
 
-# ------------------------------
-# Dependencies (explicit to avoid resolver issues)
-# ------------------------------
-scipy==1.12.0
-statsmodels==0.14.2
+# (tsfresh/scikit-learn depend on these, but listing explicitly avoids resolver hiccups)
+scipy
+statsmodels
