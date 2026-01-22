@@ -1686,7 +1686,7 @@ st.markdown(f'<h1 class="main-header">{main_title_html}</h1>', unsafe_allow_html
 st.markdown("---")
 research_title_html = create_tooltip(
     "📚 Research Overview",
-    "This section provides context about the research thesis that this application supports. It explains the focus on industrial quality control automation using machine learning and the challenges of maintaining high accuracy while reducing manual inspection workload.",
+    "This project explores how machine learning can support quality control in industrial production. Using data from manual inspections, we developed and evaluated models that identify potentially misclassified products, helping reduce manual review while maintaining quality standards.",
     "top"
 )
 st.markdown(f"### {research_title_html}", unsafe_allow_html=True)
