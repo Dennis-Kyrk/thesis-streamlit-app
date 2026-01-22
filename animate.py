@@ -2126,24 +2126,20 @@ try:
     
     st.markdown(f"""
     <div style="font-size: 1.2rem; line-height: 1.6; padding: 1.5rem; background-color: #ffebee; border-radius: 10px; border-left: 4px solid #d32f2f;">
-    <strong>⚠️ Critical Quality Control Issue:</strong> The results reveal a significant performance imbalance between the two classes. While the AI model shows good performance on normal data ({normal_correct_pct:.1f}% accuracy), its performance on defective data ({defective_correct_pct:.1f}% accuracy) is insufficient for our industrial quality control standards.
+    <strong>⚠️ Performance Imbalance Identified</strong><br>
+    The model performs well on normal products ({normal_correct_pct:.1f}% accuracy) but significantly worse on defective products ({defective_correct_pct:.1f}% accuracy), indicating a strong class imbalance.
     <br><br>
-    <strong>The Magnitude of the Problem:</strong> The error rates show a {error_ratio:.1f}x performance difference:
+
+    <strong>Key metrics:</strong>
     <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
-        <li><strong>Among classified defective samples:</strong> {defective_error_rate:.1f}% are actually normal (false positives)</li>
-        <li><strong>Among classified normal samples:</strong> {normal_error_rate:.1f}% are actually defective (false negatives)</li>
+        <li>False positives (normal flagged as defective): {defective_error_rate:.1f}%</li>
+        <li>False negatives (defective flagged as normal): {normal_error_rate:.1f}%</li>
+        <li>False alarms occur ~{error_ratio:.1f}× more frequently than quality escapes</li>
     </ul>
-    This means that among products classified as defective by the AI, there are <strong>{error_ratio:.1f} times more</strong> false alarms (normal products incorrectly flagged) compared to the rate of quality escapes (defective products incorrectly approved) among those classified as normal.
-    <br><br>
-    <strong>The Critical Impact:</strong> The {defective_error_rate:.1f}% false positive rate means that nearly 1 in 3 products flagged as defective are actually good products. This <strong>excessive rejection of good products</strong> creates significant operational and financial challenges:
-    <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
-        <li><strong>Production Delays:</strong> Good products sent for unnecessary rework or disposal</li>
-        <li><strong>Increased Costs:</strong> Wasted materials, labor, and resources on false alarms</li>
-        <li><strong>Reduced Throughput:</strong> Production lines slowed by excessive false rejections</li>
-        <li><strong>Customer Impact:</strong> Delayed deliveries due to reduced production efficiency</li>
-    </ul>
-    This performance gap necessitates the implementation of a hybrid system to optimize the balance between automation and accuracy.
+
+    Due to the high false-positive rate, a fully automated solution is unsuitable. The results motivate a hybrid human–AI workflow to balance efficiency, cost, and reliability.
     </div>
+
     """, unsafe_allow_html=True)
     
     # Hybrid System with Thresholds and Manual Inspection
